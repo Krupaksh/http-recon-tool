@@ -1,65 +1,109 @@
 import requests
 import sys
 
-def _validate_url(URL):
-    if not(URL.startswith(("http://","https://"))):
-        sys.exit("invalid URL, should have schema(protocol)")
 
-def _send_request(URL):
+class HTTPReconTool:
+    def __init__(self, url):
+        self.url = url
+        self.response = None
 
-    try:
-         # verify=False used for local dev - SSL cert issues on Windows Python
-         r = requests.get(URL, timeout=5 ,verify=False)
-         return r
     
-    except requests.exceptions.ConnectionError:
-        sys.exit("Connection failed")
-    except requests.exceptions.Timeout:
-        sys.exit("Request time out")
-    except requests.exceptions.SSLError:
-         sys.exit("unable to verify the certificate")
-         
-def _extract_header(response):
-    header_list={
-        "Server": None ,
-        "X-Powered-By": None ,
-        "Content-Type": None,
-        "X-Frame-Options": None,
-        "Set-Cookie": None,
-
-    }
-    for header in header_list:
-            header_list[header]=response.headers.get(header,"Not found")
-
-    return header_list
+    #checks URL for protocol
+    def validate_url(self):
+        if not(self.url.startswith(("http://","https://"))):
+            sys.exit("invalid URL, should have schema(protocol)")
 
 
+    #gets response from url given and handles errors which can happen
+    def send_request(self):
 
-def _print_result(response):
-    header_dict=_extract_header(response)
-
-    print("========== RECON RESULT ==========")
-    print(f"{'Status Code':<15} : {response.status_code}")
-    print(f"{'Response Time':<15} : {response.elapsed.total_seconds():.3f}s")
-    print(f"{'Final URL':<15} : {response.url}")
-    print(f"{'Content Length':<15} : {len(response.content)} bytes")
-    print(f"\n[Headers]")
-    for header in header_dict:
-        print(f"{header :<15}: {header_dict[header]}")
-
-    print("===================================")
+        try: 
+            # verify=False used for local dev - SSL cert issues on Windows Python
+            self.response = requests.get(self.url, timeout=5 ,verify=False)
     
+        except requests.exceptions.ConnectionError:
+            sys.exit("Connection failed")
+        except requests.exceptions.Timeout:
+            sys.exit("Request time out")
+        except requests.exceptions.SSLError:
+            sys.exit("unable to verify the certificate")
+        
+    
+    #gets all necessary headers from the response recieved and sets default value to not existing header
+    def extract_headers(self):
+            header_list={
+                "Server": None ,
+                "X-Powered-By": None ,
+                "Content-Type": None,
+                "X-Frame-Options": None,
+                "Set-Cookie": None,
+            }
+
+            for header in header_list:
+                header_list[header]=self.response.headers.get(header,"Not found")
+            
+            return header_list
+                
+
+    #detects the technology clues and what they unlock
+    def detect_technology(self):
+         keywords={
+             "wp-content":"WordPress",
+            ".php":"PHP",
+            "django":"Django",
+            "laravel":"Laravel",
+            "csrf":"Framework Protection",
+                }
+  
+         detected = []
+         content = self.response.text.lower() #converts to lowercase incase of text case issues
+
+         for key in keywords:
+            if key in content:
+                detected.append(keywords[key])
+    
+         return list(set(detected)) #removes duplicate values
+    
+
+    #displays the output
+    def print_result(self):
+           header_dict=self.extract_headers()
+           
+           print("========== RECON RESULT ==========")
+           print(f"{'Target':<15} : {self.url}")
+           print(f"{'Status Code':<15} : {self.response.status_code}")
+           print(f"{'Response Time':<15} : {self.response.elapsed.total_seconds():.3f}s")
+           print(f"{'Final URL':<15} : {self.response.url}")
+           print(f"{'Content Length':<15} : {len(self.response.content)} bytes")
+
+           print(f"\n[Technology Clues]")
+           technologies=self.detect_technology()
+           if technologies:
+                for value in technologies:
+                    print(f"- {value}")
+           else :
+                 print("No obvious technologies detected")
+
+           print(f"\n[Headers]")
+           for header in header_dict:
+               print(f"{header:<15} : {header_dict[header]}")
+
+           print("===================================")
+    
+
+    #to execute all methods in class
+    def run(self):
+        self.validate_url()
+        self.send_request()
+
+        if self.response:
+            self.print_result()
+
 
 if __name__=="__main__":
     if len(sys.argv) <2 :
         print("Usage: python recontool.py <URL>")
 
     else:
-        _validate_url(sys.argv[1])
-        response = _send_request(sys.argv[1])
-
-        if response:
-            _print_result(response)
-        
-
-
+        recon=HTTPReconTool(sys.argv[1])
+        recon.run()
