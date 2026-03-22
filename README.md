@@ -36,11 +36,14 @@ python recontool.py https://example.com
 
 ## 📌 Current Status
 
-Phase 1 complete:
+Phase 1 Complete:
 
-* Basic recon
-* Header extraction
-* Structured output
+* Class-based architecture
+* HTTP request handling with error management
+* Header extraction (Server, Content-Type, etc.)
+* Basic technology fingerprinting (WordPress, PHP, Django, etc.)
+* Clean CLI output
+
 
 ---
 
